@@ -81,6 +81,11 @@ func subscribe[T any](
 		return err
 	}
 
+	err = channel.Qos(10, 0, false)
+	if err != nil {
+		return err
+	}
+
 	consumer, err := channel.Consume(
 		queue.Name,
 		"",

@@ -14,20 +14,12 @@ func main() {
 	fmt.Println("Starting Peril server...")
 	conn, err := amqp.Dial(pubsub.AmqpServer)
 	if err != nil {
-		fmt.Println(err)
 		panic(err)
 	}
 	defer conn.Close()
 
-	pubCH, _, err := pubsub.DeclareAndBind(
-		conn,
-		routing.ExchangePerilTopic,
-		routing.GameLogSlug,
-		routing.GameLogSlug+".*",
-		pubsub.QueueTypeDurable,
-	)
+	pubCH, err := conn.Channel()
 	if err != nil {
-		fmt.Println(err)
 		panic(err)
 	}
 
@@ -40,7 +32,6 @@ func main() {
 		handlerGameLog(),
 	)
 	if err != nil {
-		fmt.Println(err)
 		panic(err)
 	}
 

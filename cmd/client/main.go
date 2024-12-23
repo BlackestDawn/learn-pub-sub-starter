@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/BlackestDawn/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/BlackestDawn/learn-pub-sub-starter/internal/pubsub"
@@ -13,45 +15,16 @@ func main() {
 	fmt.Println("Starting Peril client...")
 	conn, err := amqp.Dial(pubsub.AmqpServer)
 	if err != nil {
-		fmt.Println(err)
 		panic(err)
 	}
 	defer conn.Close()
 
+	pubCH, err := conn.Channel()
+	if err != nil {
+		panic(err)
+	}
+
 	username, err := gamelogic.ClientWelcome()
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}
-	_, _, err = pubsub.DeclareAndBind(
-		conn,
-		routing.ExchangePerilDirect,
-		routing.PauseKey+"."+username,
-		routing.PauseKey,
-		pubsub.QueueTypeTransient,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	moveChannel, _, err := pubsub.DeclareAndBind(
-		conn,
-		routing.ExchangePerilTopic,
-		routing.ArmyMovesPrefix+"."+username,
-		routing.ArmyMovesPrefix+".*",
-		pubsub.QueueTypeTransient,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	warChannel, _, err := pubsub.DeclareAndBind(
-		conn,
-		routing.ExchangePerilTopic,
-		routing.WarRecognitionsPrefix,
-		routing.WarRecognitionsPrefix+".*",
-		pubsub.QueueTypeDurable,
-	)
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +48,7 @@ func main() {
 		routing.ArmyMovesPrefix+"."+username,
 		routing.ArmyMovesPrefix+".*",
 		pubsub.QueueTypeTransient,
-		handlerMove(gameState, warChannel),
+		handlerMove(gameState, pubCH),
 	)
 	if err != nil {
 		panic(err)
@@ -87,7 +60,7 @@ func main() {
 		routing.WarRecognitionsPrefix,
 		routing.WarRecognitionsPrefix+".*",
 		pubsub.QueueTypeDurable,
-		handlerWar(gameState, warChannel),
+		handlerWar(gameState, pubCH),
 	)
 	if err != nil {
 		panic(err)
@@ -113,7 +86,7 @@ func main() {
 				continue
 			}
 			err = pubsub.PublishJSON(
-				moveChannel,
+				pubCH,
 				routing.ExchangePerilTopic,
 				routing.ArmyMovesPrefix+"."+username,
 				move,
@@ -129,7 +102,27 @@ func main() {
 		case "help":
 			gamelogic.PrintClientHelp()
 		case "spam":
-			fmt.Println("Spamming not allowed yet!")
+			if len(input) < 2 {
+				fmt.Println("usage: spam <number>")
+				continue
+			}
+			nr, err := strconv.Atoi(input[1])
+			if err != nil {
+				fmt.Println("unable to parse number:", err)
+				continue
+			}
+			for i := 0; i < nr; i++ {
+				pubsub.PublishGob(
+					pubCH,
+					routing.ExchangePerilTopic,
+					routing.GameLogSlug+"."+username,
+					routing.GameLog{
+						CurrentTime: time.Now(),
+						Username:    username,
+						Message:     gamelogic.GetMaliciousLog(),
+					},
+				)
+			}
 		default:
 			fmt.Println("Unknown command:", command)
 			continue
