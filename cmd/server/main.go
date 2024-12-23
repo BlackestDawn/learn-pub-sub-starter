@@ -19,18 +19,30 @@ func main() {
 	}
 	defer conn.Close()
 
-	pubCH, queue, err := pubsub.DeclareAndBind(
+	pubCH, _, err := pubsub.DeclareAndBind(
 		conn,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
-		fmt.Sprintf("%s.*", routing.GameLogSlug),
+		routing.GameLogSlug+".*",
 		pubsub.QueueTypeDurable,
 	)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
-	fmt.Printf("Queue %v declared and bound.\n", queue.Name)
+
+	err = pubsub.SubscribeGob(
+		conn,
+		routing.ExchangePerilDirect,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.QueueTypeDurable,
+		handlerGameLog(),
+	)
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
 
 	gamelogic.PrintServerHelp()
 	for {

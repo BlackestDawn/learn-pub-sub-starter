@@ -87,7 +87,7 @@ func main() {
 		routing.WarRecognitionsPrefix,
 		routing.WarRecognitionsPrefix+".*",
 		pubsub.QueueTypeDurable,
-		handlerWar(gameState),
+		handlerWar(gameState, warChannel),
 	)
 	if err != nil {
 		panic(err)
